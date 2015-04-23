@@ -65,6 +65,7 @@ router.post('/pages.json', function (req, res, next) {
         return res.end();
     }
 
+    console.log(payload);
 
     var repository = payload.repository;
     var url = repository.url;
@@ -97,9 +98,10 @@ router.post('/pages.json', function (req, res, next) {
 
     NodeGit.Clone(url, repoPath, cloneOptions)
         .catch(function (err) {
+            console.log(err);
             return 1;
         })
-        .then(function () {
+        .done(function () {
             git.checkout('gl-pages', {
                 cwd: repoPath
             }, function (err) {
