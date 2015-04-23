@@ -15,48 +15,6 @@ var request = require('request');
 /* POST  */
 router.post('/pages.json', function (req, res, next) {
     var payload = req.body;
-    payload = {
-        object_kind: 'push',
-        before: '8210661526e6069729535d7da8effbf1178758cd',
-        after: '6e9885e1119dad2539cade78ae9285d9aef32999',
-        ref: 'refs/heads/gl-pages',
-        checkout_sha: '6e9885e1119dad2539cade78ae9285d9aef32999',
-        user_id: 1,
-        user_name: 'Administrator',
-        user_email: 'admin@example.com',
-        project_id: 2,
-        repository: {
-            name: 'test',
-            url: 'git@git.lingyong.me:root/test.git',
-            description: 'adf',
-            homepage: 'http://git.lingyong.me/root/test',
-            git_http_url: 'http://git.lingyong.me/root/test.git',
-            git_ssh_url: 'git@git.lingyong.me:root/test.git',
-            visibility_level: 20
-        },
-        commits: [{
-            id: '6e9885e1119dad2539cade78ae9285d9aef32999',
-            message: 'test\n',
-            timestamp: '2015-04-22T12:30:13+08:00',
-            url: 'http://git.lingyong.me/root/test/commit/6e9885e1119dad2539cade78ae9285d9aef32999',
-            author: [Object]
-        },
-            {
-                id: '8929b93bc8ff22f576132b59d95e027632cf0d9f',
-                message: 'test\n',
-                timestamp: '2015-04-22T12:07:38+08:00',
-                url: 'http://git.lingyong.me/root/test/commit/8929b93bc8ff22f576132b59d95e027632cf0d9f',
-                author: [Object]
-            },
-            {
-                id: '8210661526e6069729535d7da8effbf1178758cd',
-                message: 'init\n',
-                timestamp: '2015-04-22T11:43:30+08:00',
-                url: 'http://git.lingyong.me/root/test/commit/8210661526e6069729535d7da8effbf1178758cd',
-                author: [Object]
-            }],
-        total_commits_count: 3
-    };
     var ref = payload.ref;
 
     var deployRef = "refs/heads/" + config.deploy.deployBranch;
@@ -93,8 +51,8 @@ router.post('/pages.json', function (req, res, next) {
                 "");
         }
     };
-    console.log.bind(console, 'repoPath:')(repoPath);
-    console.log.bind(console, 'url:')(url);
+    //console.log.bind(console, 'repoPath:')(repoPath);
+    //console.log.bind(console, 'url:')(url);
 
     NodeGit.Clone(url, repoPath, cloneOptions)
         .catch(function (err) {
@@ -140,8 +98,8 @@ router.post('/pages.json', function (req, res, next) {
         });
 });
 
-setTimeout(function () {
-    request.post('http://localhost:3000/webhooks/pages.json', {});
-}, 1000);
+//setTimeout(function () {
+//    request.post('http://localhost:3000/webhooks/pages.json', {});
+//}, 1000);
 
 module.exports = router;
