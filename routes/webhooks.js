@@ -93,8 +93,8 @@ router.post('/pages.json', function (req, res, next) {
                 "");
         }
     };
-    //console.log.bind(console, 'repoPath:')(repoPath);
-    //console.log.bind(console, 'url:')(url);
+    console.log.bind(console, 'repoPath:')(repoPath);
+    console.log.bind(console, 'url:')(url);
 
     NodeGit.Clone(url, repoPath, cloneOptions)
         .catch(function (err) {
@@ -106,13 +106,15 @@ router.post('/pages.json', function (req, res, next) {
                 cwd: repoPath
             }, function (err) {
                 if (err) {
-                    return console.log(err);
+                    console.log(err);
+                    return next(err);
                 }
                 git.pull('origin', 'gl-pages', {
                     cwd: repoPath
                 }, function (err) {
                     if (err) {
-                        return console.log(err);
+                        console.log(err);
+                        return next(err);
                     }
                     var finalRepoPath = path.resolve(config.deploy.publicPagesDir, projectNamespace, projectName);
                     rmdir(finalRepoPath, function () {
@@ -120,16 +122,19 @@ router.post('/pages.json', function (req, res, next) {
                         exec(cmd, function (error, stdout, stderr) {
                             if (error) {
                                 console.log(error);
+                                return next(err);
                             }
                             else {
                                 console.log('Done deploying ' + projectNamespace + '/' + projectName);
+                                res.sendStatus(200);
+                                res.end();
                             }
                         });
                     });
                 })
             });
         });
-    res.end();
+
 });
 
 //setTimeout(function () {
