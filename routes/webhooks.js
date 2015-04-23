@@ -8,115 +8,130 @@ var _ = require('lodash');
 var rmdir = require('rimraf');
 var mv = require('mv');
 var exec = require('child_process').exec;
+var git = require('gulp-git');
+
+var request = require('request');
 
 /* POST  */
-router.post('/pages.json', function(req, res, next) {
+router.post('/pages.json', function (req, res, next) {
     var payload = req.body;
-    // console.log(payload);
-    var userId = payload.user_id;
-    var projectId = payload.project_id;
-    // console.log('pages', userId, projectId);
-    var afterCommit = payload.after;
+    //payload = {
+    //    object_kind: 'push',
+    //    before: '8210661526e6069729535d7da8effbf1178758cd',
+    //    after: '6e9885e1119dad2539cade78ae9285d9aef32999',
+    //    ref: 'refs/heads/gl-pages',
+    //    checkout_sha: '6e9885e1119dad2539cade78ae9285d9aef32999',
+    //    user_id: 1,
+    //    user_name: 'Administrator',
+    //    user_email: 'admin@example.com',
+    //    project_id: 2,
+    //    repository: {
+    //        name: 'test',
+    //        url: 'git@git.lingyong.me:root/test.git',
+    //        description: 'adf',
+    //        homepage: 'http://git.lingyong.me/root/test',
+    //        git_http_url: 'http://git.lingyong.me/root/test.git',
+    //        git_ssh_url: 'git@git.lingyong.me:root/test.git',
+    //        visibility_level: 20
+    //    },
+    //    commits: [{
+    //        id: '6e9885e1119dad2539cade78ae9285d9aef32999',
+    //        message: 'test\n',
+    //        timestamp: '2015-04-22T12:30:13+08:00',
+    //        url: 'http://git.lingyong.me/root/test/commit/6e9885e1119dad2539cade78ae9285d9aef32999',
+    //        author: [Object]
+    //    },
+    //        {
+    //            id: '8929b93bc8ff22f576132b59d95e027632cf0d9f',
+    //            message: 'test\n',
+    //            timestamp: '2015-04-22T12:07:38+08:00',
+    //            url: 'http://git.lingyong.me/root/test/commit/8929b93bc8ff22f576132b59d95e027632cf0d9f',
+    //            author: [Object]
+    //        },
+    //        {
+    //            id: '8210661526e6069729535d7da8effbf1178758cd',
+    //            message: 'init\n',
+    //            timestamp: '2015-04-22T11:43:30+08:00',
+    //            url: 'http://git.lingyong.me/root/test/commit/8210661526e6069729535d7da8effbf1178758cd',
+    //            author: [Object]
+    //        }],
+    //    total_commits_count: 3
+    //};
     var ref = payload.ref;
 
-    // Check if this is the deploy branch
-    var deployRef = "refs/heads/"+config.deploy.deployBranch;
+    var deployRef = "refs/heads/" + config.deploy.deployBranch;
+
     if (ref !== deployRef) {
-        // console.log(ref, deployRef);
         return res.end();
     }
 
-    var opts = {
-        ignoreCertErrors: 1,
-        remoteCallbacks: {
-            credentials: function(url, userName) {
-                return NodeGit.Cred.sshKeyNew(
-                    userName,
-                    config.deploy.sshPublicKey,
-                    config.deploy.sshPrivateKey,
-                    "");
-            }
-        }
-    };
+
     var repository = payload.repository;
     var url = repository.url;
     var t = url.split(':')[1].split('/');
     var projectNamespace = t[0];
     var projectName = t[1].split('.')[0];
-    // console.log(config);
     var workingDir = config.deploy.tmpPagesDir || config.deploy.publicPagesDir;
     var repoPath = path.resolve(workingDir, projectNamespace, projectName);
-    // console.log(repoPath);
-    // console.log(url);
 
-    fs.exists(repoPath, function(exists) {
+    var cloneOptions = {
+        checkoutBranch: 'gl-pages',
+        remoteCbPayload: function () {
+            console.log.bind(console, 'remoteCb:')(arguments);
+        }
+    };
+    cloneOptions.remoteCallbacks = {
+        certificateCheck: function () {
+            return 1;
+        },
+        credentials: function (url, userName) {
+            return NodeGit.Cred.sshKeyNew(
+                userName,
+                config.deploy.sshPublicKey,
+                config.deploy.sshPrivateKey,
+                "");
+        }
+    };
+    //console.log.bind(console, 'repoPath:')(repoPath);
+    //console.log.bind(console, 'url:')(url);
 
-        function continueFn() {
-            NodeGit.Clone.clone(url, repoPath, _.cloneDeep(opts))
-            .then(function(repo) {
-                return repo.getCommit(afterCommit);
-            })
-            .done(function() {
-                // Move from workingDir to pages dir
-                var finalRepoPath = path.resolve(config.deploy.publicPagesDir, projectNamespace, projectName);
-                // Delete workingDir
-                rmdir(finalRepoPath, function() {
-                    // jekyll build --safe --source .tmp/Glavin001/gitlab-pages-example/ --destination pages/Glavin001/gitlab-pages-example
-                    var cmd = "jekyll build --safe --source \""+repoPath+"\" --destination \""+finalRepoPath+"\"";
-                    exec(cmd, function (error, stdout, stderr) {
-                        // output is in stdout
-                        console.log('Done deploying '+projectNamespace+'/'+projectName);
+    NodeGit.Clone(url, repoPath, cloneOptions)
+        .catch(function (err) {
+            return 1;
+        })
+        .then(function () {
+            git.checkout('gl-pages', {
+                cwd: repoPath
+            }, function (err) {
+                if (err) {
+                    return console.log(err);
+                }
+                git.pull('origin', 'gl-pages', {
+                    cwd: repoPath
+                }, function (err) {
+                    if (err) {
+                        return console.log(err);
+                    }
+                    var finalRepoPath = path.resolve(config.deploy.publicPagesDir, projectNamespace, projectName);
+                    rmdir(finalRepoPath, function () {
+                        var cmd = "jekyll build --safe --source \"" + repoPath + "\" --destination \"" + finalRepoPath + "\"";
+                        exec(cmd, function (error, stdout, stderr) {
+                            if (error) {
+                                console.log(error);
+                            }
+                            else {
+                                console.log('Done deploying ' + projectNamespace + '/' + projectName);
+                            }
+                        });
                     });
-                    // mv(repoPath, finalRepoPath, {
-                    //     mkdirp: true,
-                    //     clobber: true
-                    // }, function(err) {
-                    //     console.log('Done deploying '+projectNamespace+'/'+projectName);
-                    // });
-                });
+                })
             });
-        }
-
-        if (exists) {
-            // Remove the original repo
-            rmdir(repoPath, continueFn);
-        } else {
-            continueFn();
-        }
-    });
-
-    // FIXME: This code below does not work. See https://github.com/nodegit/nodegit/issues/341#issuecomment-71384969
-    // Check if repo already exists
-    // fs.exists(repoPath, function(exists) {
-    //     var promise = null;
-    //     if (exists) {
-    //         promise = NodeGit.Repository.open(repoPath);
-    //     } else {
-    //         // Clone if not already exists
-    //         promise = NodeGit.Clone.clone(url, repoPath, _.cloneDeep(opts));
-    //     }
-    //     promise.then(function(repo) {
-    //         console.log('fetch all', repo, opts);
-    //         return repo.fetchAll(opts.remoteCallbacks, opts.ignoreCertErrors)
-    //         // Now that we're finished fetching, go ahead and merge our local branch
-    //         // with the new one
-    //         .then(function(fetches) {
-    //             console.log('fetches', fetches);
-    //             return repo.mergeBranches("master", "origin/master");
-    //         })
-    //         .then(function(merges) {
-    //             console.log('merges', merges);
-    //             console.log('afterCommit', afterCommit);
-    //             console.log('repo', repo);
-    //             return repo.getCommit(afterCommit);
-    //         })
-    //         .then(function(commit) {
-    //             console.log('commit', commit);
-    //         });
-    //     });
-    // });
-
+        });
     res.end();
 });
+
+//setTimeout(function () {
+//    request.post('http://localhost:3000/webhooks/pages.json', {});
+//}, 1000);
 
 module.exports = router;
