@@ -101,7 +101,7 @@ router.post('/pages.json', function (req, res, next) {
             console.log(err);
             return 1;
         })
-        .then(function () {
+        .done(function () {
             console.log('git checkout before');
 
             git.checkout('gl-pages', {
@@ -135,6 +135,8 @@ router.post('/pages.json', function (req, res, next) {
                     });
                 })
             });
+        }, function (err) {
+            console.log('done Error:' + err);
         });
 
 });
