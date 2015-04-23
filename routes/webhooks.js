@@ -101,7 +101,9 @@ router.post('/pages.json', function (req, res, next) {
             console.log(err);
             return 1;
         })
-        .done(function () {
+        .then(function () {
+            console.log('git checkout before');
+            
             git.checkout('gl-pages', {
                 cwd: repoPath
             }, function (err) {
